@@ -1,77 +1,72 @@
-// api/prokerala.js
-// Vercel serverless function - Node 18+
-// Purpose: get token from Prokerala and proxy requests server-side.
-// Set env vars in Vercel: PROKERALA_CLIENT_ID and PROKERALA_CLIENT_SECRET
+import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
-  // CORS - allow your site. For quick testing we allow all origins.
+  // -----------------------------
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    return;
+  }
 
   try {
-    const body = (req.body && typeof req.body === 'object') ? req.body : JSON.parse(req.body || '{}');
-    const { path, method = 'POST', payload } = body;
+    // Extract body
+    const { path, method, payload } = req.body;
 
-    if (!path) return res.status(400).json({ error: 'Missing "path" in request body. Example: { path: "/v2/astrology/natal", method:"POST", payload:{...} }' });
-
-    const CLIENT_ID = process.env.PROKERALA_CLIENT_ID;
-    const CLIENT_SECRET = process.env.PROKERALA_CLIENT_SECRET;
-    if (!CLIENT_ID || !CLIENT_SECRET) return res.status(500).json({ error: 'Server not configured. Set PROKERALA_CLIENT_ID and PROKERALA_CLIENT_SECRET in Vercel env vars.' });
-
-    // Simple in-memory token cache stored on global (works across cold starts sometimes)
-    if (!global._prokerala_token || !global._prokerala_token_expires || Date.now() >= global._prokerala_token_expires) {
-      // Request token
-      const tokenResp = await fetch('https://api.prokerala.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Basic ' + Buffer.from(CLIENT_ID + ':' + CLIENT_SECRET).toString('base64')
-        },
-        body: 'grant_type=client_credentials'
+    if (!path || !method) {
+      return res.status(400).json({
+        error:
+          'Missing "path" or "method" in request body. Example: { path: "/v2/astrology/natal", method:"POST", payload:{...} }',
       });
-
-      if (!tokenResp.ok) {
-        const txt = await tokenResp.text();
-        return res.status(502).json({ error: 'Failed to fetch token from Prokerala', status: tokenResp.status, body: txt });
-      }
-      const tjson = await tokenResp.json();
-      const token = tjson.access_token || tjson.token || tjson.accessToken;
-      if (!token) return res.status(502).json({ error: 'Token response did not include access_token', body: tjson });
-
-      const expires_in = Number(tjson.expires_in || 3600);
-      global._prokerala_token = token;
-      // expire 60 seconds before real expiry
-      global._prokerala_token_expires = Date.now() + (expires_in - 60) * 1000;
     }
 
-    // Forward request to Prokerala
-    const url = 'https://api.prokerala.com' + path;
-    const headers = {
-      'Authorization': 'Bearer ' + global._prokerala_token,
-      'Accept': 'application/json'
-    };
-    if (method.toUpperCase() !== 'GET') headers['Content-Type'] = 'application/json';
+    // Get Prokerala credentials from environment variables
+    const clientId = process.env.PROKERALA_CLIENT_ID;
+    const clientSecret = process.env.PROKERALA_CLIENT_SECRET;
 
-    const prokResp = await fetch(url, {
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({ error: 'Prokerala API credentials not set' });
+    }
+
+    // Step 1: Get Bearer token
+    const tokenResponse = await fetch('https://api.prokerala.com/v1/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    });
+    const tokenData = await tokenResponse.json();
+    const token = tokenData.access_token;
+
+    if (!token) {
+      return res.status(500).json({ error: 'Failed to get Prokerala token', details: tokenData });
+    }
+
+    // Step 2: Call Prokerala API
+    const apiResponse = await fetch(`https://api.prokerala.com${path}`, {
       method,
-      headers,
-      body: method.toUpperCase() === 'GET' ? undefined : JSON.stringify(payload || {})
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     });
 
-    const text = await prokResp.text();
-    // Try to parse JSON, otherwise return raw text
-    try {
-      const json = JSON.parse(text);
-      return res.status(prokResp.status).json(json);
-    } catch (e) {
-      return res.status(prokResp.status).send(text);
-    }
+    const data = await apiResponse.json();
 
+    // Return the data
+    res.status(200).json(data);
   } catch (err) {
-    console.error('Proxy error', err);
-    return res.status(500).json({ error: 'Proxy server error', detail: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 }
