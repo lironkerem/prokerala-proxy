@@ -1,26 +1,24 @@
 import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
-  // -----------------------------
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Always set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*'); // or specify your frontend domain
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // Handle preflight OPTIONS request
+  // Respond to OPTIONS preflight immediately
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
-  // Only allow POST requests
+  // Only allow POST for main logic
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed. Use POST.' });
     return;
   }
 
   try {
-    // Extract body
     const { path, method, payload } = req.body;
 
     if (!path || !method) {
@@ -30,7 +28,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get Prokerala credentials from environment variables
     const clientId = process.env.PROKERALA_CLIENT_ID;
     const clientSecret = process.env.PROKERALA_CLIENT_SECRET;
 
@@ -38,12 +35,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Prokerala API credentials not set' });
     }
 
-    // Step 1: Get Bearer token
+    // Step 1: Get token
     const tokenResponse = await fetch('https://api.prokerala.com/v1/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
     });
+
     const tokenData = await tokenResponse.json();
     const token = tokenData.access_token;
 
@@ -63,7 +61,6 @@ export default async function handler(req, res) {
 
     const data = await apiResponse.json();
 
-    // Return the data
     res.status(200).json(data);
   } catch (err) {
     console.error(err);
