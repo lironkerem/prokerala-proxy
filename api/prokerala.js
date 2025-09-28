@@ -1,15 +1,14 @@
 import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
-  // Always set CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*'); // or specify your frontend domain
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  // Set CORS headers first - before any other logic
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  // Respond to OPTIONS preflight immediately
+  // Handle preflight OPTIONS request immediately
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   // Only allow POST for main logic
