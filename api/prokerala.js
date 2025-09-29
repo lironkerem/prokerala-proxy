@@ -41,18 +41,31 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Return mock data for now until API authentication is resolved
-  return res.status(200).json({
-    data: {
-      planets: [
-        { name: "Sun", sign: "Sagittarius", house: "5th", degree: "29.15" },
-        { name: "Moon", sign: "Cancer", house: "12th", degree: "14.32" }
-      ],
-      houses: [
-        { house: "1", sign: "Leo", degree: "18.45" },
-        { house: "2", sign: "Virgo", degree: "12.23" }
-      ]
-    }
+// Step 1: Get OAuth2 token
+const tokenResponse = await fetch('https://api.prokerala.com/token', {
+  method: 'POST',
+  headers: { 
+    'Content-Type': 'application/x-www-form-urlencoded'
+  },
+  body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`
+});
+
+if (!tokenResponse.ok) {
+  const errorText = await tokenResponse.text();
+  return res.status(500).json({ 
+    error: 'Failed to get OAuth token', 
+    details: errorText,
+    status: tokenResponse.status 
+  });
+}
+
+const tokenData = await tokenResponse.json();
+const token = tokenData.access_token;
+
+if (!token) {
+  return res.status(500).json({ 
+    error: 'No access token received', 
+    details: tokenData 
   });
 }
 
