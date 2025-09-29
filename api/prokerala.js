@@ -70,20 +70,63 @@ if (!token) {
 }
 
     // Step 2: Call Prokerala API
-    const apiResponse = await fetch(`https://api.prokerala.com${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await apiResponse.json();
-
-    res.status(200).json(data);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+  try {
+  const { path, method, payload } = req.body;
+  
+  if (!path || !method || !payload) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
+
+  const clientId = process.env.PROKERALA_CLIENT_ID;
+  const clientSecret = process.env.PROKERALA_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    return res.status(500).json({ error: 'API credentials not configured' });
+  }
+
+  // Step 1: Get OAuth2 token
+  const tokenResponse = await fetch('https://api.prokerala.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`
+  });
+
+  const tokenData = await tokenResponse.json();
+  const token = tokenData.access_token;
+
+  if (!token) {
+    return res.status(500).json({ error: 'Failed to get token', details: tokenData });
+  }
+
+  // Step 2: Build query parameters from payload
+  const queryParams = new URLSearchParams();
+  
+  // Add profile data
+  if (payload.datetime) queryParams.append('datetime', payload.datetime);
+  if (payload.latitude) queryParams.append('latitude', payload.latitude);
+  if (payload.longitude) queryParams.append('longitude', payload.longitude);
+  
+  // Add required parameters with defaults
+  queryParams.append('house_system', 'placidus');
+  queryParams.append('orb', 'default');
+  queryParams.append('la', 'en');
+  queryParams.append('ayanamsa', '0');
+
+  // Step 3: Make GET request with query parameters
+  const apiUrl = `https://api.prokerala.com${path}?${queryParams.toString()}`;
+  
+  const apiResponse = await fetch(apiUrl, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json'
+    }
+  });
+
+  const data = await apiResponse.json();
+  res.status(200).json(data);
+
+} catch (err) {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error', details: err.message });
 }
