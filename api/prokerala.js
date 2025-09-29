@@ -32,14 +32,14 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Prokerala API credentials not set' });
     }
 
-   // Step 1: Get token using OAuth2 client credentials flow
-const tokenResponse = await fetch('https://api.prokerala.com/token', {
-  method: 'POST',
-  headers: { 
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+  // Skip token step - use direct API key authentication
+const apiResponse = await fetch(`https://api.prokerala.com${path}`, {
+  method,
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${clientId}`, // Try using client_id directly
   },
-  body: 'grant_type=client_credentials'
+  body: JSON.stringify(payload),
 });
 
     // Step 2: Call Prokerala API
