@@ -25,7 +25,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API credentials not configured' });
     }
 
-    // Step 1: Get OAuth2 token
+    // Get OAuth2 token
     const tokenResponse = await fetch('https://api.prokerala.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -38,17 +38,21 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to get token', details: tokenData });
     }
 
-    // Step 2: Make POST request with JSON payload (not GET with query params!)
-    const apiUrl = `https://api.prokerala.com/${path}`;
+    // Build query parameters from payload
+    const queryParams = new URLSearchParams();
+    if (payload.datetime) queryParams.append('datetime', payload.datetime);
+    if (payload.coordinates) queryParams.append('coordinates', payload.coordinates);
+    if (payload.ayanamsa !== undefined) queryParams.append('ayanamsa', payload.ayanamsa);
+
+    // Make GET request with query parameters
+    const apiUrl = `https://api.prokerala.com/${path}?${queryParams.toString()}`;
     
     const apiResponse = await fetch(apiUrl, {
-      method: 'POST',  // POST, not GET!
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${tokenData.access_token}`,
-        'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload)  // JSON body, not query parameters!
+      }
     });
 
     const data = await apiResponse.json();
