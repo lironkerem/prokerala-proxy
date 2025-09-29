@@ -32,15 +32,29 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Prokerala API credentials not set' });
     }
 
-  // Skip token step - use direct API key authentication
-const apiResponse = await fetch(`https://api.prokerala.com${path}`, {
-  method,
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${clientId}`, // Try using client_id directly
-  },
-  body: JSON.stringify(payload),
-});
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Return mock data for now until API authentication is resolved
+  return res.status(200).json({
+    data: {
+      planets: [
+        { name: "Sun", sign: "Sagittarius", house: "5th", degree: "29.15" },
+        { name: "Moon", sign: "Cancer", house: "12th", degree: "14.32" }
+      ],
+      houses: [
+        { house: "1", sign: "Leo", degree: "18.45" },
+        { house: "2", sign: "Virgo", degree: "12.23" }
+      ]
+    }
+  });
+}
 
     // Step 2: Call Prokerala API
     const apiResponse = await fetch(`https://api.prokerala.com${path}`, {
