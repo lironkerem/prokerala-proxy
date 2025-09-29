@@ -33,11 +33,11 @@ export default async function handler(req, res) {
     }
 
     // Step 1: Get token
-    const tokenResponse = await fetch('https://api.prokerala.com/v1/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
-    });
+const tokenUrl = `https://api.prokerala.com/v1/token?client_id=${clientId}&client_secret=${clientSecret}`;
+const tokenResponse = await fetch(tokenUrl, {
+  method: 'GET',
+  headers: { 'Content-Type': 'application/json' }
+});
 
     const tokenData = await tokenResponse.json();
     const token = tokenData.access_token;
