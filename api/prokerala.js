@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     }
 
     // Step 1: Get token
-const tokenUrl = `https://api.prokerala.com/v1/token?client_id=${clientId}&client_secret=${clientSecret}`;
+const tokenUrl = `https://api.prokerala.com/v2/token?client_id=${clientId}&client_secret=${clientSecret}`;
 const tokenResponse = await fetch(tokenUrl, {
   method: 'GET',
   headers: { 'Content-Type': 'application/json' }
